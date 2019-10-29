@@ -1,12 +1,24 @@
 import copy
 import functools
 import math
+from collections import defaultdict
+
+def Sigma(*args):
+    sp = args[0]
+    for x in range(1, len(args)):
+        sp += args[x]
+    return sp
+
+def Product(*args):
+    sp = args[0]
+    for x in range(1, len(args)):
+        sp *= args[x]
+    return sp
 
 
 Context_space = [] # Existing Contexts
 
 CurrentContext = None # Now using Context
-
 
 def Run(): # User Interface to execute on certain context
     pass
@@ -39,24 +51,25 @@ class Operator: #Operator class
 
     Names = ["", "+", "x", "^", "/", "DEL", "LN", "SIN", "COS", "NEG", "Const" "Identity"]
 
-    def __init__(self, char):
+    def __init__(self, char, tool = None):
 
         self.Name = char
+        self.Evaluation = tool # numerical function used to actual evaluation.
 
     def __eq__(self, other):
 
         return self.Name == other.Name
 
-# Built - in Operator instances
-ADD = Operator("+")
-MUL = Operator("*")
-POW = Operator("^")
-DIV = Operator("/")
-NEG = Operator("-") # Is it more natural to use NEG function separately? or...
-COS = Operator("COS")
-SIN = Operator("SIN")
-LN = Operator("LN")
-DEL = Operator("DEL")
+# Built - in Operator instances. Only x and + takes multiple operands, which is import.
+ADD = Operator("+", Sigma)
+MUL = Operator("*", Product)
+POW = Operator("^", pow)
+DIV = Operator("/", lambda x, y: x/y)
+NEG = Operator("-", lambda x: -x) # Is it more natural to use NEG function separately? or...
+COS = Operator("COS", math.cos)
+SIN = Operator("SIN", math.sin)
+LN = Operator("LN", lambda x: math.log(x, math.e))
+DEL = Operator("DEL", lambda x: 0)
 
 class Function: # Function class
     # should be designed primarily by two important and distinct category of functions and <Unitary Functions>
@@ -68,18 +81,24 @@ class Function: # Function class
         self.Operator = operator
         self.Operands = list(operands)
 
+        self.Type = None # Type attribute.
+        self.InverseImage = None # Isomorphic object in specific family of functions
+
 
     def __call__(self, call_option, *args):
 
-        if args == self.Parameters: # Default call optimization f(Parameters).
-            return self
-
         if len(args) != len(self.Parameters):
             return "Fuck You"
+        elif args == self.Parameters: # Default call optimization f(Parameters).
+            return self
+
         elif self == Neg and args ==(ZERO,): # -0 is 0.
             return ZERO
+        elif self == Neg and len(args) == 1 and args[0].Type == "Polynomial_single":
+            #Monomorphism code.
+            return (args[0].InverseImage.Scale(-1)).ConvertToFunction(args[0].Parameters[0])
         else:
-            substitution_table = dict(zip([i.Name for i in self.Parameters], args))
+            substitution_table = defaultdict(list,dict(zip([i.Name for i in self.Parameters], args)))
             clone = copy.deepcopy(self)
             Substitute(clone, substitution_table)
 
@@ -89,17 +108,30 @@ class Function: # Function class
         else:
             redefined_parameters = tuple(set(functools.reduce(lambda x,y : x + y , (i.Parameters for i in args))))
 
-        setattr(clone, 'Parameters', redefined_parameters)
-
+        if IsConst(clone):
+            return EvaluateConst(clone)
+        else:
+            setattr(clone, 'Parameters', redefined_parameters)
         return clone
 
 
 
     def __eq__(self, other): # Merely comparing two function by =. this is "For developer" function.
 
+        #Monomorphism code.
+        if self.Type == "polynomial_single"and other.Type == "polynomial_single" and self.Parameters == other.Parameters:
+            return self.InverseImage == other.InverseImage
+
         return self.Operator == other.Operator and self.Operands == other.Operands
+        #같은 것은 같은 것이므로 패러미터는 비교하지 않는다.
 
     def __add__(self, other):
+
+        #Monomorphism code.
+        if self.Type == "polynomial_single"and other.Type == "polynomial_single" and self.Parameters == other.Parameters:
+            return (self.InverseImage + other.InverseImage).ConvertToFunction(self.Parameters[0])
+
+
         # Basic simplification
         if self == ZERO:
             return other
@@ -120,6 +152,11 @@ class Function: # Function class
                 return Function(redefined_parameters, ADD, copy.deepcopy(self), copy.deepcopy(other))
 
     def __mul__(self, other):
+
+        #Monomorphism code.
+        if self.Type == "polynomial_single"and other.Type == "polynomial_single" and self.Parameters == other.Parameters:
+            return (self.InverseImage * other.InverseImage).ConvertToFunction(self.Parameters[0])
+
         #Basic simplification
         if self == ONE:
             return other
@@ -146,6 +183,8 @@ class Function: # Function class
             return self + Neg(other)
 
     def __pow__(self, other):
+
+        #여기서는 Isomorphism code 의 사용에 대해 주의가 필요하다. 이것은 representation 에 대한 논의 후로 미룬다.
         #Basic simplification
         if self == ONE:
             return self
@@ -171,7 +210,7 @@ class Function: # Function class
     def IsUnitary(self): #Unitary Function Check
         return self.Operator.Name in Function.UnitaryNames
 
-    def IsEquivalent(self): # Beta Reduction Equivalency. Tree isomorphism.
+    def IsEquivalent(self): # Beta Reduction Equivalency. This needs more discussion.
         pass
 
 
@@ -205,7 +244,8 @@ class ConstantMap(Function): # Used for 'Numbers'
     def __call__(self, call_option = 0, *args):
 
         return self
-
+    # Constant 의 패러미터는 기본적으로 없다. 다만 직접 정의할 수는 있다. :f(x) = 3 과 같다. 그러나 그것은 미분과 __eq__에서는 여느 상수와 같이 취급되게 된다.
+    # 그러니까, 패러미터 있는 상수나 패러미터 없는 상수나 사실 똑같게 처리해야 한다.
 
 class IdentityMap(Function): # Identity map. Used for parametrization
 
@@ -240,7 +280,6 @@ class IdentityMap(Function): # Identity map. Used for parametrization
 
 
 # Lemma Code
-
 def Substitute(function, substitution_table):
 
     ops = function.Operands
@@ -250,13 +289,44 @@ def Substitute(function, substitution_table):
         if isinstance(ops[x], IdentityMap):
             name = ops[x].Name
             arg = substitution_table[name]
-            ops[x] = arg
+            if not arg:
+                pass
+            else:
+                ops[x] = arg
 
         elif isinstance(ops[x], ConstantMap):
             pass
 
         else:
             Substitute(ops[x], substitution_table)
+
+def IsConst(function): # to check a function is "actually" constant.
+    if isinstance(function, ConstantMap):
+        return True
+    else:
+        ops = function.Operands
+        for x in range(len(ops)):
+
+            if isinstance(ops[x], IdentityMap):
+                return False
+
+        return True
+
+#기본형은 위와 같으나, cos^2(x) + sin^2(x) 등을 상수로 인식하기 위해서는 다른 단순화법 -예를 들면  "미분해서 0" 같은 것이 필요하다.
+# 미분은 조금 이따 만들 예정이므로 이 부분은 일단 작성하지 않아 보자.
+
+def EvaluateConst(const_tree): # Evaluating real value of Constant Tree.
+    if isinstance(const_tree, ConstantMap):
+        return const_tree
+    else:
+        op = const_tree.Operator
+        if not const_tree.IsUnitary(): #Unitary 하지 않은 연산자일 경우의 처리방식
+            return op.Evaluation(*[EvaluateConst(i) for i in const_tree.Operands])
+        else: #Unitary 할 경우에는 처리방식이 조금(!) 다르다.
+            return ConstantMap(op.Evaluation(EvaluateConst(const_tree.Operands[0])))
+
+
+
 
 # Fundamental Constants used frequently.
 ONE = ConstantMap(1)
@@ -276,3 +346,153 @@ Ln = Function((VarX,), LN, VarX)
 Log = Ln(VarX)/Ln(VarY) # Log_x(y). this needs more discussion.
 
 
+
+#Single variable polynomial processing class----------------------------------------------------------------------------
+class Polynomial:
+
+    def __init__(self, coefficients):
+
+        self.Coefficients = Trim_list(coefficients)
+        self.Degree = len(self.Coefficients)-1
+
+    # x would be representing single variable here.
+    def __str__(self):
+        temp = [str(self.Coefficients[i]) + "x^" + str(self.Degree - i) + "+" for i in range(self.Degree + 1)]
+        return sum(temp)[:-1]
+
+    def __eq__(self, other):
+        return self.Coefficients == other.Coefficients
+
+    def __add__(self, other):
+
+        s, o = self.Coefficients, other.Coefficients
+
+        if self.Degree == other.Degree:
+            pass
+        elif self.Degree > other.Degree:
+            o = Pad_list(o, self.Degree - other.Degree, "L")
+        else:
+            s = Pad_list(s, other.Degree - self.Degree, "L")
+
+        a = (lambda x, y: [x[n] + y[n] for n in range(len(x))])(s, o)
+        return Polynomial(a)
+
+    # Scalar multiple
+    def Scale(self, c):
+
+        a = (lambda x, y: [y*x[n] for n in range(len(x))])(self.Coefficients, c)
+        return Polynomial(a)
+
+    def __sub__(self, other):
+        return self + other.Scale(-1)
+
+    def __mul__(self, other):
+
+        s, o = Pad_list(self.Coefficients, other.Degree, "L"), Pad_list(other.Coefficients, self.Degree, "L")
+        s.reverse()
+        o.reverse()
+
+        # Cauchy Product.
+        a = [sum([s[x] * o[k - x] for x in range(k+1)]) for k in range(self.Degree + other.Degree+1)]
+        a.reverse()
+        return Polynomial(a)
+
+    #"quotient".
+    def Quotient_div(self, other):
+        if other == Polynomial([0]):
+            raise ZeroDivisionError
+        else:
+            if self.Degree < other.Degree:
+                return Polynomial([0])
+
+            elif self.Degree == other.Degree:
+                q = self.Coefficients[0]/other.Coefficients[0]
+                return Polynomial([q])
+            else:
+                q = self.Coefficients[0]/other.Coefficients[0]
+                q1 = (Polynomial(Pad_list([1], self.Degree - other.Degree, "R")).Scale(q))
+                r1 = self - q1 * other
+                return q1 + r1.Quotient_div(other)
+
+    def __divmod__(self, other):
+
+        quotient = self.Quotient_div(other)
+        remainder = self - quotient * other
+        return quotient, remainder
+
+    def Pow_int(self, n):
+
+        if n < 0 or n != n//1:
+            return "Not closed under this operation"
+
+        elif n == 0:
+            return Polynomial([1])
+        else:
+            return self * self.Pow_int(n-1)
+
+    def Differentiate(self):
+
+        ary = Dot(self.Coefficients, [self.Degree - n for n in range(self.Degree + 1)])
+        del ary[-1]
+        return Polynomial(ary)
+
+    # Evaluating polynomial function "self" indicates.
+    def Evaluate(self, x):
+        return sum([self.Coefficients[n]*pow(x, self.Degree - n) for n in range(self.Degree+1)])
+
+    def ConvertToFunction(self, parameter):
+        #Monomorphism: Polynomial -> Function.
+
+        summation = [ConstantMap(self.Coefficients[i]) * pow(parameter, ConstantMap(self.Degree - i))  for i in range(self.Degree + 1)]
+        a = Function(parameter, ADD, *summation)
+        setattr(a, "Type", "Polynomial_single")
+        setattr(a, "InverseImage", self)
+        return a
+
+
+# (x - p) 진법으로 다항식을 나타내 주는 함수.
+
+def X_P_base(polynomial, p):
+    n = 0
+    base = Polynomial([1, -p])
+    result = []
+
+    d = polynomial
+    while n != (polynomial.Degree+1):
+        t = divmod(d, base)
+        result.append(t[1])
+        d = t[0]
+        n = n + 1
+
+    result.reverse()
+    return result
+
+
+
+
+#lemma codes---------------------------------------
+def Trim_list(ary):
+    if not ary:
+        raise IndexError
+    else:
+        while ary[0] == 0:
+            del ary[0]
+            if not ary:
+                return [0]
+        else:
+            return ary
+
+def Pad_list(ary, n, direction):
+    if direction == "L":
+        return [0 for x in range(n)] + ary
+    elif direction == "R":
+        return ary + [0 for x in range(n)]
+    else:
+        return "Fuck You"
+
+
+def Dot(ary1, ary2):
+    if len(ary1) != len(ary2):
+        return IndexError
+    else:
+        return [ary1[n] * ary2[n] for n in range(len(ary1))]
