@@ -3,6 +3,9 @@ import functools
 import math
 from collections import defaultdict
 
+#부동 소수점 문제 조속히 해결 바람.
+
+
 def Sigma(*args):
     sp = args[0]
     for x in range(1, len(args)):
@@ -81,24 +84,29 @@ class Function: # Function class
         self.Operator = operator
         self.Operands = list(operands)
 
+        self.Name = None
+        self.Value = None
+
         self.Type = None # Type attribute.
         self.InverseImage = None # Isomorphic object in specific family of functions
 
 
-    def __call__(self, call_option, *args):
+    def __call__(self, call_option = False, *args):
 
         if len(args) != len(self.Parameters):
+            print(len(args))
             return "Fuck You"
         elif args == self.Parameters: # Default call optimization f(Parameters).
             return self
 
-        elif self == Neg and args ==(ZERO,): # -0 is 0.
-            return ZERO
+        elif self == Neg and len(args) == 1 and isinstance(args[0], ConstantMap): # -0 is 0.
+            return ConstantMap(-(args[0].Value))
         elif self == Neg and len(args) == 1 and args[0].Type == "Polynomial_single":
             #Monomorphism code.
             return (args[0].InverseImage.Scale(-1)).ConvertToFunction(args[0].Parameters[0])
         else:
             substitution_table = defaultdict(list,dict(zip([i.Name for i in self.Parameters], args)))
+            #print(substitution_table)
             clone = copy.deepcopy(self)
             Substitute(clone, substitution_table)
 
@@ -118,8 +126,11 @@ class Function: # Function class
 
     def __eq__(self, other): # Merely comparing two function by =. this is "For developer" function.
 
+        if isinstance(self, ConstantMap) and isinstance(other, ConstantMap):
+            return self.Value == other.Value
+
         #Monomorphism code.
-        if self.Type == "polynomial_single"and other.Type == "polynomial_single" and self.Parameters == other.Parameters:
+        if self.Type == "Polynomial_single"and other.Type == "Polynomial_single" and self.Parameters == other.Parameters:
             return self.InverseImage == other.InverseImage
 
         return self.Operator == other.Operator and self.Operands == other.Operands
@@ -127,8 +138,12 @@ class Function: # Function class
 
     def __add__(self, other):
 
+        if isinstance(self, ConstantMap) and isinstance(other, ConstantMap):
+            return ConstantMap(self.Value + other.Value)
+
         #Monomorphism code.
-        if self.Type == "polynomial_single"and other.Type == "polynomial_single" and self.Parameters == other.Parameters:
+        if self.Type == "Polynomial_single"and other.Type == "Polynomial_single" and self.Parameters == other.Parameters:
+            print('here')
             return (self.InverseImage + other.InverseImage).ConvertToFunction(self.Parameters[0])
 
 
@@ -153,8 +168,11 @@ class Function: # Function class
 
     def __mul__(self, other):
 
+        if isinstance(self, ConstantMap) and isinstance(other, ConstantMap):
+            return ConstantMap(self.Value * other.Value)
+
         #Monomorphism code.
-        if self.Type == "polynomial_single"and other.Type == "polynomial_single" and self.Parameters == other.Parameters:
+        if self.Type == "Polynomial_single" and other.Type == "Polynomial_single" and self.Parameters == other.Parameters:
             return (self.InverseImage * other.InverseImage).ConvertToFunction(self.Parameters[0])
 
         #Basic simplification
@@ -180,9 +198,14 @@ class Function: # Function class
         if self == other:
             return ZERO
         else:
-            return self + Neg(other)
+            return self + Neg(False, other)
+
 
     def __pow__(self, other):
+
+        if isinstance(self, ConstantMap) and isinstance(other, ConstantMap):
+            return ConstantMap(pow(self.Value, other.Value))
+
 
         #여기서는 Isomorphism code 의 사용에 대해 주의가 필요하다. 이것은 representation 에 대한 논의 후로 미룬다.
         #Basic simplification
@@ -195,8 +218,13 @@ class Function: # Function class
 
             return Function(redefined_parameters, POW, copy.deepcopy(self), copy.deepcopy(other))
 
+
+
     def __truediv__(self, other):
-        #Basic simplification
+
+        if isinstance(self, ConstantMap) and isinstance(other, ConstantMap):
+            return ConstantMap(self.Value/other.Value)
+
         if other == ZERO:
             raise ZeroDivisionError
         elif self == other:
@@ -221,29 +249,13 @@ class ConstantMap(Function): # Used for 'Numbers'
         Function.__init__(self, (), Operator("Const"), self)
         self.Value = value
 
-    def __eq__(self, other):
-
-        return self.Value == other.Value
-
-    def __add__(self, other):
-
-        return ConstantMap(self.Value + other.Value)
-
-    def __mul__(self, other):
-
-        return ConstantMap(self.Value * other.Value)
-
-    def __pow__(self, other):
-
-        return ConstantMap(pow(self.Value, other.Value))
-
-    def __truediv__(self, other):
-
-        return ConstantMap(self.Value/other.Value)
-
-    def __call__(self, call_option = 0, *args):
+    def __call__(self, call_option = False, *args):
 
         return self
+
+    def __str__(self):
+        return str(self.Value)
+
     # Constant 의 패러미터는 기본적으로 없다. 다만 직접 정의할 수는 있다. :f(x) = 3 과 같다. 그러나 그것은 미분과 __eq__에서는 여느 상수와 같이 취급되게 된다.
     # 그러니까, 패러미터 있는 상수나 패러미터 없는 상수나 사실 똑같게 처리해야 한다.
 
@@ -271,12 +283,15 @@ class IdentityMap(Function): # Identity map. Used for parametrization
 
         #return Function(tuple({self, other}), Operator("*"), *(self, other))
 
-    def __call__(self, call_option, *args):
+    def __call__(self, call_option = False, *args):
 
         if len(args)!=1:
             return "Fuck You"
 
         return args[0]
+
+    def __str__(self):
+        return self.Name
 
 
 # Lemma Code
@@ -303,14 +318,17 @@ def Substitute(function, substitution_table):
 def IsConst(function): # to check a function is "actually" constant.
     if isinstance(function, ConstantMap):
         return True
+
+    elif isinstance(function, IdentityMap):
+        return False
+
     else:
         ops = function.Operands
+        temp = True
         for x in range(len(ops)):
+            temp = temp * IsConst(ops[x])
 
-            if isinstance(ops[x], IdentityMap):
-                return False
-
-        return True
+        return temp
 
 #기본형은 위와 같으나, cos^2(x) + sin^2(x) 등을 상수로 인식하기 위해서는 다른 단순화법 -예를 들면  "미분해서 0" 같은 것이 필요하다.
 # 미분은 조금 이따 만들 예정이므로 이 부분은 일단 작성하지 않아 보자.
@@ -323,7 +341,7 @@ def EvaluateConst(const_tree): # Evaluating real value of Constant Tree.
         if not const_tree.IsUnitary(): #Unitary 하지 않은 연산자일 경우의 처리방식
             return op.Evaluation(*[EvaluateConst(i) for i in const_tree.Operands])
         else: #Unitary 할 경우에는 처리방식이 조금(!) 다르다.
-            return ConstantMap(op.Evaluation(EvaluateConst(const_tree.Operands[0])))
+            return ConstantMap(op.Evaluation(EvaluateConst(const_tree.Operands[0]).Value))
 
 
 
@@ -337,13 +355,14 @@ E = ConstantMap(math.e)
 # Fundamental Variable X used for built - in Unitary Functions.
 VarX = IdentityMap("x")
 VarY = IdentityMap("y")
+VarZ = IdentityMap("z")
 
 # Four basic Built - in Functions.
 Neg = Function((VarX,), NEG, VarX)
-Sin = Function((VarX,), SIN, VarY)
+Sin = Function((VarX,), SIN, VarX)
 Cos = Function((VarX,), COS, VarX)
 Ln = Function((VarX,), LN, VarX)
-Log = Ln(VarX)/Ln(VarY) # Log_x(y). this needs more discussion.
+Log = Ln(False, VarX)/Ln(False, VarY) # Log_x(y). this needs more discussion.
 
 
 
@@ -358,7 +377,10 @@ class Polynomial:
     # x would be representing single variable here.
     def __str__(self):
         temp = [str(self.Coefficients[i]) + "x^" + str(self.Degree - i) + "+" for i in range(self.Degree + 1)]
-        return sum(temp)[:-1]
+        string = ''
+        for x in range(len(temp)):
+            string +=temp[x]
+        return string[:-4]
 
     def __eq__(self, other):
         return self.Coefficients == other.Coefficients
@@ -444,7 +466,7 @@ class Polynomial:
         #Monomorphism: Polynomial -> Function.
 
         summation = [ConstantMap(self.Coefficients[i]) * pow(parameter, ConstantMap(self.Degree - i))  for i in range(self.Degree + 1)]
-        a = Function(parameter, ADD, *summation)
+        a = Function((parameter,) , ADD, *summation)
         setattr(a, "Type", "Polynomial_single")
         setattr(a, "InverseImage", self)
         return a
@@ -496,3 +518,13 @@ def Dot(ary1, ary2):
         return IndexError
     else:
         return [ary1[n] * ary2[n] for n in range(len(ary1))]
+
+
+
+
+
+#p = Polynomial([1,2,1])
+#P_x = p.ConvertToFunction(VarX)
+#Q_x = p.ConvertToFunction(VarX)
+
+#R = P_x * Q_x
