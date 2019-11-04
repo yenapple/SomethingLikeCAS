@@ -241,6 +241,47 @@ class Function: # Function class
     def IsEquivalent(self): # Beta Reduction Equivalency. This needs more discussion.
         pass
 
+    def Del(self, other): # (Partial) Derivative
+
+        if not isinstance(other, IdentityMap):
+            return "Fuck You"
+        else:
+            if not (other in self.Parameters):
+                return ZERO
+            else:
+                if IsConst(self, (other,) ):
+                    return ZERO #Derivative of Constant is ZERO.
+
+                elif self == other:
+                    return ONE
+
+                elif self.Operator == ADD:
+                    return Sigma([i.Del(other) for i in self.Operands])
+
+                elif self.Operator == NEG:
+                    return Neg(False, (self.Operands[0]).Del(other))
+
+                elif self.Operator == MUL:
+                    l = self.Operands[0]
+                    r = Function(self.Parameters, MUL, *self.Operands[1:])
+                    if len(r.Operands) == 1:
+                        r = r.Operands[0]
+
+                    return l.Del(other) * r + l * r.Del(other)
+
+                elif self.Operator == DIV:
+                    f = self.Operands[0]
+                    g = self.Operands[1]
+                    h = g * f.Del(other) - g.Del(other) * f
+
+                    return Function(self.Parameters, DIV, *[ h, pow(g, ConstantMap(2))])
+
+                else:
+                    pass # 여기에 더 상세한 미분 규칙 기술 바람.
+
+
+
+
 
 class ConstantMap(Function): # Used for 'Numbers'
 
@@ -315,12 +356,21 @@ def Substitute(function, substitution_table):
         else:
             Substitute(ops[x], substitution_table)
 
-def IsConst(function): # to check a function is "actually" constant.
+def IsConst(function, reference = ()): # to check a function is "actually" constant.
+    # reference X -> To check if it is literally constant
+    # reference O -> To check if it is constant with respect to reference variables
+
     if isinstance(function, ConstantMap):
         return True
 
     elif isinstance(function, IdentityMap):
-        return False
+        if not reference:
+            return False
+        else:
+            if function in reference:
+                return False
+            else:
+                return True
 
     else:
         ops = function.Operands
