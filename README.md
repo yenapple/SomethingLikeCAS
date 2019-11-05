@@ -87,3 +87,8 @@ It is that easy in class "Polynomial".
 Thus we first process it within polynomial family, and convert back to Function class.
 Since the two results should be identical Mathematically, we choose convenient order.
 that is our design principle.  
+
+
+##  Simplifications
+
+see [Simplification Rules](github.com/bigblueberry/SomethingLikeCAS/Sim.pdf)
