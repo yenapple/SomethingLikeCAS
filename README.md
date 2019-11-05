@@ -91,4 +91,4 @@ that is our design principle.
 
 ##  Simplifications
 
-see [Simplification Rules](github.com/bigblueberry/SomethingLikeCAS/Sim.pdf)
+see [Simplification Rules](https://github.com/bigblueberry/SomethingLikeCAS/blob/master/Sim.pdf)
