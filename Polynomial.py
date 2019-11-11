@@ -1,5 +1,5 @@
 
-#Single variable polynomial processing class----------------------------------------------------------------------------
+#Single variable polynomial processing class
 class Polynomial:
 
     def __init__(self, coefficients):
@@ -99,12 +99,16 @@ class Polynomial:
     def ConvertToFunction(self, parameter):
         #Monomorphism: Polynomial -> Function.
 
-        summation = [ConstantMap(self.Coefficients[i]) * pow(parameter, ConstantMap(self.Degree - i))  for i in range(self.Degree + 1)]
-        a = Function((parameter,) , ADD, *summation)
+        summation = [Ct.Function((parameter, ), Op.MUL,
+                                 Ct.ConstantMap(self.Coefficients[i]), Ct.Function((parameter,), Op.POW, parameter, Ct.ConstantMap(i)))
+                     for i in range(self.Degree + 1)]
+
+        a = Ct.Function((parameter,), Op.ADD, *summation)
         setattr(a, "Type", "Polynomial_single")
         setattr(a, "InverseImage", self)
         return a
     '''
+
 
 # (x - p) 진법으로 다항식을 나타내 주는 함수.
 
@@ -126,7 +130,7 @@ def X_P_base(polynomial, p):
 
 
 
-#lemma codes---------------------------------------
+#lemma code
 def Trim_list(ary):
     if not ary:
         raise IndexError
@@ -138,27 +142,19 @@ def Trim_list(ary):
         else:
             return ary
 
+#lemma code
 def Pad_list(ary, n, direction):
     if direction == "L":
-        return [0 for x in range(n)] + ary
+        return [0]*n + ary
     elif direction == "R":
-        return ary + [0 for x in range(n)]
+        return ary + [0]*n
     else:
         return "Fuck You"
 
-
+#lemma code
 def Dot(ary1, ary2):
     if len(ary1) != len(ary2):
         return IndexError
     else:
         return [ary1[n] * ary2[n] for n in range(len(ary1))]
 
-
-
-
-
-#p = Polynomial([1,2,1])
-#P_x = p.ConvertToFunction(VarX)
-#Q_x = p.ConvertToFunction(VarX)
-
-#R = P_x * Q_x

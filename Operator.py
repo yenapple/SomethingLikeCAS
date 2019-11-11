@@ -1,13 +1,13 @@
 import math
 
-#lemma code.
+#lemma code
 def Sigma(*args):
     sp = args[0]
     for x in range(1, len(args)):
         sp += args[x]
     return sp
 
-#lemma code.
+#lemma code
 def Product(*args):
     sp = args[0]
     for x in range(1, len(args)):
@@ -15,10 +15,10 @@ def Product(*args):
     return sp
 class Operator:
 
-    Names = ["", "+", "x", "^", "DEL", "LN", "SIN", "COS", "Const" "Identity"]
+    Names = ["", "+", "x", "^", "LN", "SIN", "COS", "Const" "Identity"]
     UnitaryNames = ["SIN", "COS", "LN", "Const" "Identity"]
 
-    def __init__(self, char, evaluation_func = None):
+    def __init__(self, char, evaluation_func=None):
 
         self.Name = char
         self.EvaluationFunction = evaluation_func
@@ -29,7 +29,6 @@ class Operator:
 
 
 # Built - in Operator instances. Only x and + takes multiple operands, which is important.
-
 ADD = Operator("+", Sigma)
 MUL = Operator("*", Product)
 POW = Operator("^", pow)

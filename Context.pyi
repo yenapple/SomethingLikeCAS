@@ -3,11 +3,10 @@ import functools
 import math
 from collections import defaultdict
 import Operator as Op
-import Polynomial
+import Polynomial as Poly
 
 
 class Function: # Function class
-    # should be designed primarily by two important and distinct category of functions and <Unitary Functions>
 
     def __init__(self, parameters =(), operator = Op.Operator(""), *operands):
 
@@ -17,6 +16,9 @@ class Function: # Function class
 
         self.Name = None # 이 부분은 함수 자체의 이름으로 지어줘야 한다. User 단계니까 일단 패스.
         self.Value = None
+
+        #Isomorphism code
+        self.InverseImage = None
 
 
     def __call__(self, call_option = False, *args):
@@ -46,6 +48,12 @@ class Function: # Function class
         if isinstance(self, ConstantMap) and isinstance(other, ConstantMap):
             return self.Value == other.Value
 
+        b = Bind("=", self, other)
+        if b is None:
+            pass
+        else:
+            return b
+
         return self.Operator == other.Operator and self.Operands == other.Operands
         #같은 것은 같은 것이므로 패러미터는 비교하지 않는다.
 
@@ -53,6 +61,10 @@ class Function: # Function class
 
         if isinstance(self, ConstantMap) and isinstance(other, ConstantMap):
             return ConstantMap(self.Value + other.Value)
+
+        b = Bind("+", self, other)
+        if not b is None:
+            return b
         else:
             f = Remove_Parenthesis(Op.ADD, self, other)
             f = Order_operands(f)
@@ -63,6 +75,10 @@ class Function: # Function class
     def __sub__(self, other):
         if self == other:
             return ZERO
+
+        b = Bind("-", self, other)
+        if not b is None:
+            return b
         else:
             return self + NEG_ONE*other
 
@@ -70,16 +86,25 @@ class Function: # Function class
 
         if isinstance(self, ConstantMap) and isinstance(other, ConstantMap):
             return ConstantMap(self.Value * other.Value)
+
+        b = Bind("*", self, other)
+        if not b is None:
+            return b
         else:
             f = Remove_Parenthesis(Op.MUL, self, other)
             f = Order_operands(f)
             f = Group_operands(f)
             return f
 
+
     def __pow__(self, power, modulo=None):
 
         if isinstance(self, ConstantMap) and isinstance(power, ConstantMap):
             return ConstantMap(pow(self.Value, power.Value))
+
+        b = Bind("^", self, power)
+        if not b is None:
+            return b
         else:
             f = Remove_Parenthesis(Op.POW, self, power)
             f = Order_operands(f)
@@ -95,24 +120,79 @@ class Function: # Function class
         elif self == other:
             return ONE
         else:
-            return self * pow(other, NEG_ONE)
 
+            b = Bind("/", self, other)
+            if not b is None:
+                return b
+            else:
+                return self * pow(other, NEG_ONE)
 
+    # (Partial) Differentiation Operator Del.
+    def Del(self, other):
+        # 미분을 하나의 Operator 로 처리해야 할까? 이 부분은 "User - Defined Irreducible Function" 의 논의 후로 나눈다.
 
-    def Del(self, other): #Differentiation.
-        # Del 의 처리는 쉽다. 그러나 이 operator 를 무슨 종류로 classify 해야 할까? Unitary Function?
-        pass
+        if not isinstance(other, IdentityMap):
+            return "Fuck You"
+
+        else:
+            if IsConst(self, (other,)):
+                return ZERO
+
+            elif self == other:
+                return ONE
+
+            elif self == Sin(False, other):
+                return Cos(False, other)
+
+            elif self == Cos(False, other):
+                return NEG_ONE * Sin(other)
+
+            elif self == Ln(False, other):
+                return ONE/other
+
+            elif self.Operator == Op.ADD:
+                return Op.Sigma([i.Del(other) for i in self.Operands])
+
+            elif self.Operator == Op.MUL:
+
+                l = self.Operands[0]
+                r = Function(self.Parameters, Op.MUL, *self.Operands[1:])
+                if len(r.Operands) == 1:
+                    r = r.Operands[0]
+
+                return l.Del(other) * r + l * r.Del(other)
+
+            elif self.Operator == Op.POW:
+
+                base = self.Operands[0]
+                exponent = self.Operands[1]
+                if isinstance(exponent, ConstantMap):
+                    return base.Del(other) * pow(base, exponent-ONE)
+                else:
+                    p = pow(base, exponent-ONE)
+                    q = exponent * base.Del(other) + base * Ln(False, base) * exponent.Del(other)
+                    return p * q
+
+            elif self.IsUnitary():
+                # Derivative of Composite Function
+                p = self.Operands[0]
+                q =UnitaryDictionary[self.Operator]
+                return p.Del(other) * (q.Del(q.Parameters[0]))(p)
+
+            else:
+                return None
 
     def IsUnitary(self):
 
         return self.Operator.Name in Op.Operator.UnitaryNames
 
-class ConstantMap(Function): # Used for 'Numbers'
+class ConstantMap(Function):
 
     def __init__(self, value):
 
         Function.__init__(self, (), Op.CONST, self)
         self.Value = value
+        self.InverseImage = Poly.Polynomial([self.Value])
 
     def __call__(self, call_option = False, *args):
 
@@ -121,7 +201,8 @@ class ConstantMap(Function): # Used for 'Numbers'
     def __str__(self):
         return str(self.Value)
 
-class IdentityMap(Function): # Identity map. Used for parametrization
+#Identity map. Used for parametrization
+class IdentityMap(Function):
 
     def __init__(self, letter):
 
@@ -157,7 +238,7 @@ class IdentityMap(Function): # Identity map. Used for parametrization
 
         return self.Name
 
-# lemma code.
+#lemma code
 def Substitute(function, substitution_table):
 
     ops = function.Operands
@@ -258,6 +339,10 @@ def IsPolynomial(function):
 
 # Fundamental Variable X used for built - in Unitary Functions.
 VarX = IdentityMap("x")
+
+setattr(VarX, "InverseImage", Poly.Polynomial([1]))
+#이것은 임시방편이다. 곧 Polynomial 클래스를 Multi-variable version 으로 확장할 것이니 그때까지만 놔두자.
+
 VarY = IdentityMap("y")
 VarZ = IdentityMap("z")
 
@@ -266,6 +351,7 @@ Sin = Function((VarX,), Op.SIN, VarX)
 Cos = Function((VarX,), Op.COS, VarX)
 Ln = Function((VarX,), Op.LN, VarX)
 Log = Ln(False, VarX)/Ln(False, VarY) # Log_x(y). this needs more discussion.
+UnitaryDictionary = {Op.SIN : Sin, Op.COS : Cos, Op.LN : Ln}
 
 # Fundamental Constants used frequently.
 ONE = ConstantMap(1)
@@ -273,6 +359,7 @@ NEG_ONE = ConstantMap(-1)
 ZERO = ConstantMap(0)
 PI = ConstantMap(math.pi)
 E = ConstantMap(math.e)
+
 
 
 #lemma code.
@@ -423,11 +510,75 @@ def Group_operands(function):
     else:
         return function
 
-#Isomorphism code.
-'''
-def Isomorphism():
-    pass
-'''
+
+'''Isomorphism 은 분명 좋은 수학적 도구이나, 이를 코드로 쓰기에는 그 자유도 때문에 매우 위험하다.
+    아래의 코드가 정말로 옳은 방법인지 반드시 나중에 확인할 필요가 있다.'''
+
+
+#Isomorphism code
+class Isomorphism:
+
+    def __init__(self, mapping, *operator_names):
+
+        self.Map = mapping
+        self.Operations = operator_names
+
+
+#Isomorphism code
+def Convert(self, parameter):
+
+    #Monomorphism: Polynomial -> Function.
+    summation = [Function((parameter, ), Op.MUL,
+                                ConstantMap(self.Coefficients[i]), Function((parameter,), Op.POW, parameter, ConstantMap(i)))
+                    for i in range(self.Degree + 1)]
+
+    a = Function((parameter,), Op.ADD, *summation)
+    setattr(a, "InverseImage", self)
+    return a
+
+#Isomorphism code
+Poly.Polynomial.ConvertToFunction = Convert
+Polynomial_Isomorphism = Isomorphism(Poly.Polynomial.ConvertToFunction, "=", "+", "*", "-")
+Isomorphisms_list = { Function : None, Poly.Polynomial : Polynomial_Isomorphism }
+
+#Isomorphism code
+def Bind(operator_name, function1, function2):
+
+    f1 = function1.InverseImage
+    f2 = function2.InverseImage
+
+    if isinstance(f1, type(f2)):
+        i = Isomorphisms_list[type(f2)]
+    elif isinstance(f2, type(f1)):
+        i = Isomorphisms_list[type(f1)]
+    else:
+        return None
+
+    if i is None or not (operator_name in i.Operations):
+        return None
+    elif operator_name == "+":
+        return i.Map(function1.InverseImage + function2.InverseImage)
+    elif operator_name == "*":
+        return i.Map(function1.InverseImage * function2.InverseImage)
+    elif operator_name == "=":
+        return function1.InverseImage == function2.InverseImage
+    elif operator_name == "/":
+        return i.Map(function1.InverseImage/function2.InverseImage)
+    elif operator_name == "-":
+        return i.Map(function1.InverseImage - function2.InverseImage)
+    elif operator_name == "^":
+        return i.Map(pow(function1.InverseImage, function2.InverseImage))
+    else:
+        return None
+
+
+
+
+
+
+
+
+
 
 
 
