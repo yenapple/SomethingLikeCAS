@@ -91,4 +91,16 @@ that is our design principle.
 
 ##  Simplifications
 
-see [Simplification Rules](https://github.com/bigblueberry/SomethingLikeCAS/blob/master/Sim.pdf)
+곧 수정 내역을 반영하여 문서화할 예정. 크게 변한 것은 없다.
+
+
+## Progress
+
+아래는 몇 가지 테스트 내역이다.
+
+![1](./imgs/Snap1.PNG)
+
+그리고 그 결과이다.
+
+![2](./imgs/Snap2.PNG)
+
