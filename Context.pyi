@@ -20,6 +20,9 @@ class Function: # Function class
         #Isomorphism code
         self.InverseImage = None
 
+    def __str__(self):
+        return  str(self.Operator) + "(" + Op.Sigma(*[str(elem) + "," for elem in self.Operands])[:-1] + ")"
+
 
     def __call__(self, call_option = False, *args):
 
@@ -48,11 +51,13 @@ class Function: # Function class
         if isinstance(self, ConstantMap) and isinstance(other, ConstantMap):
             return self.Value == other.Value
 
+        '''
         b = Bind("=", self, other)
         if b is None:
             pass
         else:
             return b
+        '''
 
         return self.Operator == other.Operator and self.Operands == other.Operands
         #같은 것은 같은 것이므로 패러미터는 비교하지 않는다.
@@ -62,39 +67,44 @@ class Function: # Function class
         if isinstance(self, ConstantMap) and isinstance(other, ConstantMap):
             return ConstantMap(self.Value + other.Value)
 
+        '''
         b = Bind("+", self, other)
         if not b is None:
             return b
-        else:
-            f = Remove_Parenthesis(Op.ADD, self, other)
-            f = Order_operands(f)
-            f = Group_operands(f)
-            return f
+        '''
+
+        f = Remove_Parenthesis(Op.ADD, self, other)
+        f = Order_operands(f)
+        f = Group_operands(f)
+        return f
 
     #Syntactic sugar
     def __sub__(self, other):
         if self == other:
             return ZERO
 
+        '''
         b = Bind("-", self, other)
         if not b is None:
             return b
-        else:
-            return self + NEG_ONE*other
+        '''
+        return self + NEG_ONE*other
 
     def __mul__(self, other):
 
         if isinstance(self, ConstantMap) and isinstance(other, ConstantMap):
             return ConstantMap(self.Value * other.Value)
 
+        '''
         b = Bind("*", self, other)
         if not b is None:
             return b
-        else:
-            f = Remove_Parenthesis(Op.MUL, self, other)
-            f = Order_operands(f)
-            f = Group_operands(f)
-            return f
+        '''
+
+        f = Remove_Parenthesis(Op.MUL, self, other)
+        f = Order_operands(f)
+        f = Group_operands(f)
+        return f
 
 
     def __pow__(self, power, modulo=None):
@@ -102,14 +112,15 @@ class Function: # Function class
         if isinstance(self, ConstantMap) and isinstance(power, ConstantMap):
             return ConstantMap(pow(self.Value, power.Value))
 
+        '''
         b = Bind("^", self, power)
         if not b is None:
             return b
-        else:
-            f = Remove_Parenthesis(Op.POW, self, power)
-            f = Order_operands(f)
-            f = Group_operands(f)
-            return f
+        '''
+        f = Remove_Parenthesis(Op.POW, self, power)
+        f = Order_operands(f)
+        f = Group_operands(f)
+        return f
 
     #Syntactic sugar
     def __truediv__(self, other):
@@ -120,12 +131,12 @@ class Function: # Function class
         elif self == other:
             return ONE
         else:
-
+            '''
             b = Bind("/", self, other)
             if not b is None:
                 return b
-            else:
-                return self * pow(other, NEG_ONE)
+            '''
+            return self * pow(other, NEG_ONE)
 
     # (Partial) Differentiation Operator Del.
     def Del(self, other):
@@ -145,13 +156,13 @@ class Function: # Function class
                 return Cos(False, other)
 
             elif self == Cos(False, other):
-                return NEG_ONE * Sin(other)
+                return NEG_ONE * Sin(False, other)
 
             elif self == Ln(False, other):
                 return ONE/other
 
             elif self.Operator == Op.ADD:
-                return Op.Sigma([i.Del(other) for i in self.Operands])
+                return Op.Sigma(*[i.Del(other) for i in self.Operands])
 
             elif self.Operator == Op.MUL:
 
@@ -167,7 +178,7 @@ class Function: # Function class
                 base = self.Operands[0]
                 exponent = self.Operands[1]
                 if isinstance(exponent, ConstantMap):
-                    return base.Del(other) * pow(base, exponent-ONE)
+                    return exponent * base.Del(other) * pow(base, exponent-ONE)
                 else:
                     p = pow(base, exponent-ONE)
                     q = exponent * base.Del(other) + base * Ln(False, base) * exponent.Del(other)
@@ -176,8 +187,8 @@ class Function: # Function class
             elif self.IsUnitary():
                 # Derivative of Composite Function
                 p = self.Operands[0]
-                q =UnitaryDictionary[self.Operator]
-                return p.Del(other) * (q.Del(q.Parameters[0]))(p)
+                q = UnitaryDictionary[self.Operator]
+                return p.Del(other) * (q.Del(q.Parameters[0]))(False, p)
 
             else:
                 return None
@@ -192,7 +203,7 @@ class ConstantMap(Function):
 
         Function.__init__(self, (), Op.CONST, self)
         self.Value = value
-        self.InverseImage = Poly.Polynomial([self.Value])
+        #self.InverseImage = Poly.Polynomial([self.Value])
 
     def __call__(self, call_option = False, *args):
 
@@ -301,10 +312,13 @@ def EvaluateConst(const_tree): # Evaluating real value of Constant Tree.
 
 #lemma code
 def CalculateTree(function):
+
         if IsConst(function):
             return EvaluateConst(function)
+        elif isinstance(function, IdentityMap):
+            return function
         elif function.IsUnitary():
-            return Function(function.Operator, CalculateTree(function.Operands[0]))
+            return Function(function.Parameters, function.Operator, CalculateTree(function.Operands[0]))
         else:
             op = function.Operator
             if op == Op.ADD:
@@ -340,17 +354,17 @@ def IsPolynomial(function):
 # Fundamental Variable X used for built - in Unitary Functions.
 VarX = IdentityMap("x")
 
-setattr(VarX, "InverseImage", Poly.Polynomial([1]))
+#setattr(VarX, "InverseImage", Poly.Polynomial([1]))
 #이것은 임시방편이다. 곧 Polynomial 클래스를 Multi-variable version 으로 확장할 것이니 그때까지만 놔두자.
 
 VarY = IdentityMap("y")
 VarZ = IdentityMap("z")
+VarT = IdentityMap("t")
 
 # Four basic Built - in Functions.
 Sin = Function((VarX,), Op.SIN, VarX)
 Cos = Function((VarX,), Op.COS, VarX)
 Ln = Function((VarX,), Op.LN, VarX)
-Log = Ln(False, VarX)/Ln(False, VarY) # Log_x(y). this needs more discussion.
 UnitaryDictionary = {Op.SIN : Sin, Op.COS : Cos, Op.LN : Ln}
 
 # Fundamental Constants used frequently.
@@ -382,18 +396,15 @@ def Remove_Parenthesis(operator, function1, function2):
 
         if operator == Op.ADD or operator == Op.MUL:
             if function1.Operator == operator and function2.Operator == operator:
-                parenthesis_removed_form = Function(redefined_parameters, operator, *(copy.deepcopy(function1.Operands) + copy.deepcopy(function2.Operands)))
+                return Function(redefined_parameters, operator, *(copy.deepcopy(function1.Operands) + copy.deepcopy(function2.Operands)))
             elif function1.Operator == operator:
-                parenthesis_removed_form = Function(redefined_parameters, operator, *(copy.deepcopy(function1.Operands) + [copy.deepcopy(function2)]))
+               return Function(redefined_parameters, operator, *(copy.deepcopy(function1.Operands) + [copy.deepcopy(function2)]))
             elif function2.Operator == operator:
-                parenthesis_removed_form = Function(redefined_parameters, operator, *([copy.deepcopy(function1)] + copy.deepcopy(function2.Operands)))
-            else:
-                pass
+                return Function(redefined_parameters, operator, *([copy.deepcopy(function1)] + copy.deepcopy(function2.Operands)))
 
         elif operator == Op.POW:
             if function1.Operator ==  operator:
-                parenthesis_removed_form = Function(redefined_parameters, operator, function1.Operands[0] * function2)
-
+                return Function(redefined_parameters, operator, function1.Operands[0] * function2)
 
         parenthesis_removed_form = Function(redefined_parameters, operator, copy.deepcopy(function1), copy.deepcopy(function2))
 
@@ -415,22 +426,28 @@ def Order_operands(function):
     elif function.Operator == Op.ADD or function.Operator == Op.MUL:
 
         constant_operands = [elem for elem in function.Operands if IsConst(elem)]
-        non_constant_operands = [elem for elem in function.Opoerands if not elem in constant_operands]
+        non_constant_operands = [elem for elem in function.Operands if not elem in constant_operands]
 
-        pre = function.Operator.EvaluationFunction(*constant_operands)
+        pre = None
+        if constant_operands:
+            pre = ConstantMap(function.Operator.EvaluationFunction(*[C.Value for C in constant_operands]))
+
         temp = non_constant_operands
 
         if function.Operator == Op.ADD:
-            if pre == ZERO:
+
+            if pre is None or pre == ZERO:
                 function.Operands = []
             else:
                 function.Operands = [pre,]
                 pass
+
         elif function.Operator == Op.MUL:
-            if pre == ZERO:
-                return ZERO
-            elif pre == ONE:
+
+            if pre is None or pre == ONE:
                 function.Operands = []
+            elif pre == ZERO:
+                return ZERO
             else:
                 function.Operands = [pre,]
                 pass
@@ -457,7 +474,7 @@ def Group_operands(function):
         for elem in function.Operands:
             if elem.Operator == Op.MUL and len(elem.Operands) == 2:
                 #Identity Map takes priority 1st.
-                if isinstance(elem.Operands[0], IdentityMap) and isinstance(elem.Operands[0], IdentityMap):
+                if isinstance(elem.Operands[0], IdentityMap) and isinstance(elem.Operands[1], IdentityMap):
                     lefts.append((max(elem.Operands), min(elem.Operands)))
                 elif isinstance(elem.Operands[0], IdentityMap):
                     lefts.append((elem.Operands[0], elem.Operands[1]))
@@ -485,6 +502,9 @@ def Group_operands(function):
 
         function.Operands = [elem[0] * elem[1] for elem in grouped_list]
 
+        if len(function.Operands) == 1:
+            return function.Operands[0]
+
 
     elif function.Operator == Op.MUL:
 
@@ -499,22 +519,24 @@ def Group_operands(function):
         grouped_list = []
 
         while bases:
-
             pop = bases[0][0]
             temp = [elem[1] for elem in bases if elem[0] == pop]
             grouped_list.append((pop, Op.Sigma(*temp)))
             bases = [elem for elem in bases if elem[0] != pop]
+
         #Here, I thought about b^x * c^x = (bc)^x, only true for b, c>= 0, Thus I wouldn't add this.
         function.Operands = [pow(elem[0], elem[1]) for elem in grouped_list]
 
-    else:
-        return function
+        if len(function.Operands) == 1:
+            return function.Operands[0]
+
+    return function
 
 
 '''Isomorphism 은 분명 좋은 수학적 도구이나, 이를 코드로 쓰기에는 그 자유도 때문에 매우 위험하다.
     아래의 코드가 정말로 옳은 방법인지 반드시 나중에 확인할 필요가 있다.'''
 
-
+'''
 #Isomorphism code
 class Isomorphism:
 
@@ -532,14 +554,21 @@ def Convert(self, parameter):
                                 ConstantMap(self.Coefficients[i]), Function((parameter,), Op.POW, parameter, ConstantMap(i)))
                     for i in range(self.Degree + 1)]
 
-    a = Function((parameter,), Op.ADD, *summation)
+    a = ZERO
+    if len(summation) == 1:
+        a = summation[0]
+    else:
+        a = Function((parameter,), Op.ADD, *summation)
     setattr(a, "InverseImage", self)
     return a
+# 곧 다항식 모듈을 일반적으로 n 변수 다항식으로 바꿀 테니 그때까지만 참자.
+
 
 #Isomorphism code
 Poly.Polynomial.ConvertToFunction = Convert
 Polynomial_Isomorphism = Isomorphism(Poly.Polynomial.ConvertToFunction, "=", "+", "*", "-")
 Isomorphisms_list = { Function : None, Poly.Polynomial : Polynomial_Isomorphism }
+
 
 #Isomorphism code
 def Bind(operator_name, function1, function2):
@@ -547,35 +576,64 @@ def Bind(operator_name, function1, function2):
     f1 = function1.InverseImage
     f2 = function2.InverseImage
 
-    if isinstance(f1, type(f2)):
+    if f1 is None or f2 is None:
+        return None
+    elif isinstance(f1, type(f2)):
         i = Isomorphisms_list[type(f2)]
     elif isinstance(f2, type(f1)):
         i = Isomorphisms_list[type(f1)]
-    else:
-        return None
+
 
     if i is None or not (operator_name in i.Operations):
         return None
     elif operator_name == "+":
-        return i.Map(function1.InverseImage + function2.InverseImage)
+        return i.Map(f1 + f2, Redefine_Parameter(False, function1, function2))
     elif operator_name == "*":
-        return i.Map(function1.InverseImage * function2.InverseImage)
+        return i.Map(f1 * f2, Redefine_Parameter(False, function1, function2))
     elif operator_name == "=":
-        return function1.InverseImage == function2.InverseImage
+        return f1 == f2
     elif operator_name == "/":
-        return i.Map(function1.InverseImage/function2.InverseImage)
+        return i.Map(f1/f2, Redefine_Parameter(False, function1, function2))
     elif operator_name == "-":
-        return i.Map(function1.InverseImage - function2.InverseImage)
+        return i.Map(f1 - f2, Redefine_Parameter(False, function1, function2))
     elif operator_name == "^":
-        return i.Map(pow(function1.InverseImage, function2.InverseImage))
+        return i.Map(pow(f1, f2), Redefine_Parameter(False, function1, function2))
     else:
         return None
+'''
+
+Tan = Sin/Cos
+Sec = ONE/Cos
+Csc = ONE/Sin
+Cot = ONE/Tan
+Log = Ln(False, VarX)/Ln(False, VarY) # Log_x(y). this needs more discussion.
 
 
 
+Fx = ConstantMap(4) * VarY * VarZ * VarY * pow(VarZ, ConstantMap(3))
+Qx = VarY + VarY
+Tx = ConstantMap(4) * pow(VarX, ConstantMap(2)) + VarY
+Gx = Sin(False, Tx)
+DisGustingFunction = pow(VarX, VarX)
+Fucked_at_Zero = ONE/VarX
+SinCos = Sin(False, VarX) * Cos(False, VarX)
+ExpSin = pow(E, Sin(False, VarX))
+TripleVariableDude = (pow(VarX, ConstantMap(2)) + VarY * VarZ) / (ONE - VarX * Ln(False, VarZ))
+Monster = TripleVariableDude(False, VarT, VarT, VarT)
 
 
-
+print(Ln(False, pow(E, ConstantMap(2))))
+print(Fx)
+print(Qx)
+print(Gx.Del(VarX))
+print(DisGustingFunction.Del(VarX))
+print(Fucked_at_Zero * VarX)
+print(SinCos.Del(VarX))
+print(ExpSin.Del(VarX))
+print(Tan.Del(VarX))
+print(Sec.Del(VarX))
+print(TripleVariableDude)
+print(Monster)
 
 
 
