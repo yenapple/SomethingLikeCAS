@@ -18,7 +18,7 @@ class Function: # Function class
         self.Value = None
 
         #Isomorphism code
-        self.InverseImage = None
+        #self.InverseImage = None
 
     def __str__(self):
         return  str(self.Operator) + "(" + Op.Sigma(*[str(elem) + "," for elem in self.Operands])[:-1] + ")"
@@ -30,6 +30,13 @@ class Function: # Function class
             return "Fuck You"
         elif args == self.Parameters: # Default call optimization f(Parameters).
             return self
+
+        elif self == Ln and args[0].Operator == Op.POW and args[0].Operands[0] == E: # Ln(E^x) = x
+            return args[0].Operands[1]
+
+        elif self.IsUnitary() and args[0].IsUnitary() and self.Operator.Inverse == args[0].Operator: # Other Inverse calls
+            return args[0].Operands[0]
+
         else:
             redefined_parameters = Redefine_Parameter(call_option, *args)
 
@@ -112,6 +119,8 @@ class Function: # Function class
         if isinstance(self, ConstantMap) and isinstance(power, ConstantMap):
             return ConstantMap(pow(self.Value, power.Value))
 
+        elif self == E and power.Operator == Op.LN: # E^(Ln(x)) = x
+            return power.Operands[0]
         '''
         b = Bind("^", self, power)
         if not b is None:
@@ -160,6 +169,12 @@ class Function: # Function class
 
             elif self == Ln(False, other):
                 return ONE/other
+
+            elif self == Arcsin(False, other):
+                return pow( ONE - pow(other, ConstantMap(2)) ,ConstantMap(-1/2))
+
+            elif self == Arccos(False, other):
+                return NEG_ONE * pow( ONE - pow(other, ConstantMap(2)) ,ConstantMap(-1/2))
 
             elif self.Operator == Op.ADD:
                 return Op.Sigma(*[i.Del(other) for i in self.Operands])
@@ -249,6 +264,7 @@ class IdentityMap(Function):
 
         return self.Name
 
+
 #lemma code
 def Substitute(function, substitution_table):
 
@@ -329,6 +345,8 @@ def CalculateTree(function):
                 return pow(CalculateTree(function.Operands[0]), CalculateTree(function.Operands[1]))
 
             # Should add Unitary Function - related simplification rule here. like sin^2 + cos^2 = 1..
+
+
 '''
 #lemma code
 def IsPolynomial(function):
@@ -365,7 +383,10 @@ VarT = IdentityMap("t")
 Sin = Function((VarX,), Op.SIN, VarX)
 Cos = Function((VarX,), Op.COS, VarX)
 Ln = Function((VarX,), Op.LN, VarX)
-UnitaryDictionary = {Op.SIN : Sin, Op.COS : Cos, Op.LN : Ln}
+
+Arcsin = Function((VarX,), Op.ARCSIN, VarX)
+Arccos = Function((VarX,), Op.ARCCOS, VarX)
+UnitaryDictionary = {Op.SIN : Sin, Op.COS : Cos, Op.LN : Ln, Op.ARCSIN : Arcsin, Op.ARCCOS : Arccos}
 
 # Fundamental Constants used frequently.
 ONE = ConstantMap(1)
@@ -442,6 +463,15 @@ def Order_operands(function):
                 function.Operands = [pre,]
                 pass
 
+            ln_operators = [elem for elem in temp if elem.Operator == Op.LN]
+            if not ln_operators:
+                pass
+            else: # Ln(a) + Ln(b) = Ln(ab) If well - defined. This needs more discussion, since Ln is well defined for only positive number.
+                temp = [elem for elem in temp if not elem in ln_operators]
+                ln = Ln(False, Op.Product(*[elem.Operands[0] for elem in ln_operators]))
+                temp += [ln,]
+                # Ln(a^x) = xLn(a) 는 Default 로서는 '넣지 않는다'. 지수보다 상수가 편하다고 생각하는 철학? ㅎㅎ.
+
         elif function.Operator == Op.MUL:
 
             if pre is None or pre == ONE:
@@ -485,7 +515,6 @@ def Group_operands(function):
                     lefts.append((elem.Operands[0], elem.Operands[1]))
                 elif elem.Operands[1].IsUnitary() and not elem.Operands[0].IsUnitary():
                     lefts.append((elem.Operands[1], elem.Operands[0]))
-                # Here, I 'd like to add ln(a) + ln(b) = ln(a*b). But this needs more discussion.
                 else:
                     lefts.append((elem, ONE))
             else:
@@ -608,8 +637,7 @@ Csc = ONE/Sin
 Cot = ONE/Tan
 Log = Ln(False, VarX)/Ln(False, VarY) # Log_x(y). this needs more discussion.
 
-
-
+'''
 Fx = ConstantMap(4) * VarY * VarZ * VarY * pow(VarZ, ConstantMap(3))
 Qx = VarY + VarY
 Tx = ConstantMap(4) * pow(VarX, ConstantMap(2)) + VarY
@@ -634,13 +662,7 @@ print(Tan.Del(VarX))
 print(Sec.Del(VarX))
 print(TripleVariableDude)
 print(Monster)
-
-
-
-
-
-
-
+'''
 
 
 

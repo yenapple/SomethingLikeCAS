@@ -21,13 +21,15 @@ def Print_list(lst):
 
 class Operator:
 
-    Names = ["", "+", "x", "^", "LN", "SIN", "COS", "ARS", "ARC", "ART", "Const" "Identity"]
+    Names = ["", "+", "x", "^", "LN", "SIN", "COS", "ARS", "ARC", "ART", "Const" "Identity", "Del", "Default"]
     UnitaryNames = ["SIN", "COS", "LN", "ARS", "ARC", "ART" "Const" "Identity"]
 
     def __init__(self, char, evaluation_func=None):
 
         self.Name = char
         self.EvaluationFunction = evaluation_func
+        self.Inverse = None
+
 
     def __eq__(self, other):
 
@@ -50,6 +52,12 @@ ARCSIN = Operator("ARS", math.asin)
 ARCCOS = Operator("ARC", math.acos)
 ARCTAN = Operator("ART", math.atan)
 LN = Operator("LN", lambda x: math.log(x, math.e))
-DEL = Operator("DEL", lambda x: 0)
-CONST = Operator("CONST", )
+DEL = Operator("Del", lambda x: 0)
+CONST = Operator("Const", )
 IDENTITY = Operator("Identity")
+DEFAULT = Operator("Default")
+
+setattr(SIN, "Inverse", ARCSIN)
+setattr(COS, "Inverse", ARCCOS)
+setattr(ARCSIN, "Inverse", SIN)
+setattr(ARCCOS, "Inverse", COS)
