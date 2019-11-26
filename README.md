@@ -1,98 +1,69 @@
 # SomethingLikeCAS
-I love Algebra.
 
+Simple Computer Algebra System.
+
+<br>
 
 ## Description
 
-Analysis and Algebra system on real - valued single or multi variable functions. Primary goal of this project is
-clearly to do Analysis and Algebra.^^
+system on real - valued single or multi variable functions. Primary goal of this project is
+clearly to do Analysis and Algebra.
+
+<br>
 
 ## Design Philosophy
 
 Everything is a function.
 
-Mathematical way is always best.
-
 Isomorphisms are better than inheritance.
 
-Parser should do 70% of simplification.
-
-Equal things are equal.
+Mathematically Equal things are equal.
 
 Equivalent things are equal in some contexts.
 
 The only we know is Identity map.
 
+<br>
+
+## TODOLISTS
+
+**Mathematics**
+
+ [] Equation Solver
+ [] Matrix Algebra
+ [] Extending Polynomial Module
+ [] Series Computation
+ [] Numerical Methods
+ 
+ Challenging Topics might be:
+ 
+ [] Symbolic Integration
+ [] Geometries
+ 
+ **Development**
+ 
+ [] Parser
+ [] Dialogue Interpretation
+ [] Prettier I/O
+ 
+ Challenging Topics might be:
+ 
+ [] Graph Rendering 
+
+<br>
+
 ## Schedule 
 
-난 내가 작업하고 싶을 때만 한다.
+의미가 있을진 잘 모르겠고, 2020/12월까지 천천히 만들어서 Challenging Topics를 제외하고 구현하는 것이 목표다. 또한 Challenging Topics를
+다루기 위한 준비를 해놓는 것 정도?
 
-## Isomorphisms
+<br>
 
-The design principle of this project is "Homomorphism Structure".
+## Principles
 
-class "Function" is merely conceptual class. This class provides essential
-features of function objects ( Definition, Parameters, Calling, Tree structure )
+See [Principles](./imgs/Principles.md)
 
-However, it is difficult to process operations on "specific" family of functions  
-with only this conceptual class. 
-
-Therefore I formulated mathematical solution. "Homomorphism" is a function between
-two sets that preserves specific operation or characteristics. Here, they should be 
-closed under the operation.
-
-```
-    f(a + b) = f(a) + f(b)
-    f(ab) = f(a)f(b)
-```
-For example, this simple function above is Homomorphism on addition and multiplication.
-
-If a homomorphism is injective, it's called monomorphism.
-
-
-If a homomorphism is surjective, it's called ephimorphism.
-
-If both, it's called Isomorphism. Our system is monomorphism - based. 
-```
-    Function class <----ConvertTo-------> Specific external class
-    |                (Counterclockwise)             |
-    v                                               v
-    Operations<--------ConvertTo-----------------> Operations
-
-```
-Diagram above fully describes how our system works. 
-1. Generate specific external instance and its pair - Function from ConvertTo() 
-2. Operation is called from Function class
-3. Execute the paired operation from paired instance in the external class
-4. Use ConvertTo() to obtain the result in Function class.
-
-To illustrate further, imagine Polynomial Multiplication - It is bothersome work 
-within Tree structure. So is other polynomial - specific works and simplification.
-
-```
-    def __mul__(self, other):
-
-        s, o = Pad_list(self.Coefficients, other.Degree, "L"), Pad_list(other.Coefficients, self.Degree, "L")
-        s.reverse()
-        o.reverse()
-
-        # Cauchy Product.
-        a = [sum([s[x] * o[k - x] for x in range(k+1)]) for k in range(self.Degree + other.Degree+1)]
-        a.reverse()
-        return Polynomial(a)
-
-```
-It is that easy in class "Polynomial".
-
-Thus we first process it within polynomial family, and convert back to Function class.
-Since the two results should be identical Mathematically, we choose convenient order.
-that is our design principle.  
-
-
-##  Simplifications
-
-곧 수정 내역을 반영하여 문서화할 예정. 크게 변한 것은 없다.
-
+<br>
 
 ## Progress
 
