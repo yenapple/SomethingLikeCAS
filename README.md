@@ -29,26 +29,40 @@ The only we know is Identity map.
 
 **Mathematics**
 
- [] Equation Solver
- [] Matrix Algebra
- [] Extending Polynomial Module
- [] Series Computation
- [] Numerical Methods
+Equation Solver
+
+Matrix Algebra
+  
+Extending Polynomial Module
+  
+Series Computation
+
+Numerical Methods
+
+<br>
+
+**Challenging Topics might be:**
  
- Challenging Topics might be:
+Symbolic Integration
+
+Geometries
+
+<br>
+
  
- [] Symbolic Integration
- [] Geometries
+**Development**
  
- **Development**
+Parser
+
+Dialogue Interpretation
+
+Prettier I/O
+
+<br>
+
+**Challenging Topics might be:**
  
- [] Parser
- [] Dialogue Interpretation
- [] Prettier I/O
- 
- Challenging Topics might be:
- 
- [] Graph Rendering 
+Graph Rendering 
 
 <br>
 
