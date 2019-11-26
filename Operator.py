@@ -22,7 +22,7 @@ def Print_list(lst):
 class Operator:
 
     Names = ["", "+", "x", "^", "LN", "SIN", "COS", "ARS", "ARC", "ART", "Const" "Identity", "Del", "Default"]
-    UnitaryNames = ["SIN", "COS", "LN", "ARS", "ARC", "ART" "Const" "Identity"]
+    UnitaryNames = ["SIN", "COS", "LN", "ARS", "ARC", "ART" "Const" "Identity", "Default"]
 
     def __init__(self, char, evaluation_func=None):
 

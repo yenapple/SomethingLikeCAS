@@ -5,6 +5,9 @@ from collections import defaultdict
 import Operator as Op
 import Polynomial as Poly
 
+'''디폴트함수는 Parameters, Operator 는 무조건 Default, Operands 는 기본적으로 Parameters 와 같은 취급을 하고,
+Name attribute 에 함수 이름을 부여하는 것으로 한다.'''
+
 
 class Function: # Function class
 
@@ -14,13 +17,18 @@ class Function: # Function class
         self.Operator = operator
         self.Operands = list(operands)
 
-        self.Name = None # 이 부분은 함수 자체의 이름으로 지어줘야 한다. User 단계니까 일단 패스.
+        self.Name = None # 이 부분은 함수 자체의 이름으로 지어줘야 한다. 디폴트함수의 경우 많이 사용하게 될 것.
+        # 또한 디폴트함수의 원형은 Name 을 부여하며, DefaultDictionary 에 생성과 함꼐 집어넣어야 한다.
         self.Value = None
 
         #Isomorphism code
         #self.InverseImage = None
 
     def __str__(self):
+
+        if self.Operator == Op.DEFAULT: # 수정 내역 6. 디폴트함수의 출력
+            return self.Name + "(" + Op.Sigma(*[str(elem) + "," for elem in self.Operands])[:-1] + ")"
+
         return  str(self.Operator) + "(" + Op.Sigma(*[str(elem) + "," for elem in self.Operands])[:-1] + ")"
 
 
@@ -34,7 +42,7 @@ class Function: # Function class
         elif self == Ln and args[0].Operator == Op.POW and args[0].Operands[0] == E: # Ln(E^x) = x
             return args[0].Operands[1]
 
-        elif self.IsUnitary() and args[0].IsUnitary() and self.Operator.Inverse == args[0].Operator: # Other Inverse calls
+        elif self.IsSingle() and args[0].IsSingle() and self.Operator.Inverse == args[0].Operator: # Other Inverse calls
             return args[0].Operands[0]
 
         else:
@@ -58,6 +66,8 @@ class Function: # Function class
         if isinstance(self, ConstantMap) and isinstance(other, ConstantMap):
             return self.Value == other.Value
 
+        elif self.Operator == Op.DEFAULT and other.Operator == Op.DEFAULT: # 디폴트 함수의 경우.
+            return self.Name == other.Name and self.Operands == other.Operands
         '''
         b = Bind("=", self, other)
         if b is None:
@@ -65,7 +75,6 @@ class Function: # Function class
         else:
             return b
         '''
-
         return self.Operator == other.Operator and self.Operands == other.Operands
         #같은 것은 같은 것이므로 패러미터는 비교하지 않는다.
 
@@ -149,7 +158,6 @@ class Function: # Function class
 
     # (Partial) Differentiation Operator Del.
     def Del(self, other):
-        # 미분을 하나의 Operator 로 처리해야 할까? 이 부분은 "User - Defined Irreducible Function" 의 논의 후로 나눈다.
 
         if not isinstance(other, IdentityMap):
             return "Fuck You"
@@ -160,6 +168,9 @@ class Function: # Function class
 
             elif self == other:
                 return ONE
+
+            elif self.Operator == Op.DEFAULT and self.Operands == list(self.Parameters): # 수정 내역 1 : 디폴트함수의 미분은 디폴트
+                return Function(self.Parameters, Op.DEL, self, other) #  이런 경우에 DEL 을 !
 
             elif self == Sin(False, other):
                 return Cos(False, other)
@@ -192,7 +203,7 @@ class Function: # Function class
 
                 base = self.Operands[0]
                 exponent = self.Operands[1]
-                if isinstance(exponent, ConstantMap):
+                if IsConst(exponent, (other,)): # 수정 내역 #3: IsConst 를 사용
                     return exponent * base.Del(other) * pow(base, exponent-ONE)
                 else:
                     p = pow(base, exponent-ONE)
@@ -200,17 +211,27 @@ class Function: # Function class
                     return p * q
 
             elif self.IsUnitary():
-                # Derivative of Composite Function
-                p = self.Operands[0]
-                q = UnitaryDictionary[self.Operator]
-                return p.Del(other) * (q.Del(q.Parameters[0]))(False, p)
+                # chain rule
+                p = self.Operands
+                q = None
+                if self.Operator == Op.DEFAULT:
+                    q = DefaultDictionary[self.Name]
+                else:
+                    q = UnitaryDictionary[self.Operator]
+                return Op.Sigma(*[p[i].Del(other) * q.Del(q.Parameters[i])(False, *p) for i in range(len(p))])
+                pass
 
             else:
                 return None
 
-    def IsUnitary(self):
+    def IsUnitary(self): # Unitary ( Irreducible ) Function
 
         return self.Operator.Name in Op.Operator.UnitaryNames
+
+    def IsSingle(self): # Single Variable Unitary Func
+
+        return self.IsUnitary() and len(self.Parameters) == 1
+
 
 class ConstantMap(Function):
 
@@ -264,6 +285,12 @@ class IdentityMap(Function):
 
         return self.Name
 
+# Default Function Generator.
+def DefaultFunction(name, parameters):
+    f = Function(parameters, Op.DEFAULT, *list(parameters))
+    setattr(f, "Name" , name)
+    DefaultDictionary[name] = f
+    return f
 
 #lemma code
 def Substitute(function, substitution_table):
@@ -313,8 +340,29 @@ def IsConst(function, reference = ()):
 
         return True
 
+# Default function call like f(0), is Const but cannot be computed. 이런 구분은 짜증나는 것이지만, 현재로서 방법이 없다.
+def IsPureConst(const_tree):
+
+    if not IsConst(const_tree):
+        return False
+    elif isinstance(const_tree, ConstantMap):
+        return True
+
+    elif const_tree.Operator == Op.DEFAULT:
+        return False
+
+    else:
+        ops = const_tree.Operands
+        for x in range(len(ops)):
+            if not IsPureConst(ops[x]):
+                return False
+            else:
+                pass
+
+        return True
+
 #lemma code
-def EvaluateConst(const_tree): # Evaluating real value of Constant Tree.
+def EvaluateConst(const_tree): # Evaluating real value of Constant Tree. This should be done on Pure constant Tree.
 
     if isinstance(const_tree, ConstantMap):
         return const_tree
@@ -324,17 +372,19 @@ def EvaluateConst(const_tree): # Evaluating real value of Constant Tree.
             return op.EvaluationFunction(*[EvaluateConst(i) for i in const_tree.Operands])
 
         else:
-            return ConstantMap(op.EvaluationFunction(EvaluateConst(const_tree.Operands[0]).Value))
+            return ConstantMap(op.EvaluationFunction(*[EvaluateConst(i).Value for i in const_tree.Operands]))
 
 #lemma code
 def CalculateTree(function):
 
-        if IsConst(function):
+        if IsPureConst(function):
             return EvaluateConst(function)
-        elif isinstance(function, IdentityMap):
+        elif IsConst(function):
+            return function
+        elif isinstance(function, IdentityMap) or function.Operator == Op.DEFAULT:
             return function
         elif function.IsUnitary():
-            return Function(function.Parameters, function.Operator, CalculateTree(function.Operands[0]))
+            return Function(function.Parameters, function.Operator, *[CalculateTree(i) for i in function.Operands])
         else:
             op = function.Operator
             if op == Op.ADD:
@@ -369,6 +419,7 @@ def IsPolynomial(function):
 '''
 
 
+
 # Fundamental Variable X used for built - in Unitary Functions.
 VarX = IdentityMap("x")
 
@@ -387,6 +438,7 @@ Ln = Function((VarX,), Op.LN, VarX)
 Arcsin = Function((VarX,), Op.ARCSIN, VarX)
 Arccos = Function((VarX,), Op.ARCCOS, VarX)
 UnitaryDictionary = {Op.SIN : Sin, Op.COS : Cos, Op.LN : Ln, Op.ARCSIN : Arcsin, Op.ARCCOS : Arccos}
+DefaultDictionary = {}
 
 # Fundamental Constants used frequently.
 ONE = ConstantMap(1)
@@ -395,7 +447,8 @@ ZERO = ConstantMap(0)
 PI = ConstantMap(math.pi)
 E = ConstantMap(math.e)
 
-
+# Example of Default Function.
+Mine = DefaultFunction("Mine", (VarX, VarY))
 
 #lemma code.
 def Redefine_Parameter(call_option = False, *function_set):
@@ -446,12 +499,13 @@ def Order_operands(function):
 
     elif function.Operator == Op.ADD or function.Operator == Op.MUL:
 
-        constant_operands = [elem for elem in function.Operands if IsConst(elem)]
+        constant_operands = [elem for elem in function.Operands if IsPureConst(elem)]
+        # 수정 내역 5. Pure ConstantMap 인 것에 대해서만 축약 적용.
         non_constant_operands = [elem for elem in function.Operands if not elem in constant_operands]
 
         pre = None
         if constant_operands:
-            pre = ConstantMap(function.Operator.EvaluationFunction(*[C.Value for C in constant_operands]))
+            pre = ConstantMap(function.Operator.EvaluationFunction(*[EvaluateConst(C).Value for C in constant_operands]))
 
         temp = non_constant_operands
 
@@ -637,7 +691,7 @@ Csc = ONE/Sin
 Cot = ONE/Tan
 Log = Ln(False, VarX)/Ln(False, VarY) # Log_x(y). this needs more discussion.
 
-'''
+
 Fx = ConstantMap(4) * VarY * VarZ * VarY * pow(VarZ, ConstantMap(3))
 Qx = VarY + VarY
 Tx = ConstantMap(4) * pow(VarX, ConstantMap(2)) + VarY
@@ -649,11 +703,14 @@ ExpSin = pow(E, Sin(False, VarX))
 TripleVariableDude = (pow(VarX, ConstantMap(2)) + VarY * VarZ) / (ONE - VarX * Ln(False, VarZ))
 Monster = TripleVariableDude(False, VarT, VarT, VarT)
 
-
+'''
 print(Ln(False, pow(E, ConstantMap(2))))
 print(Fx)
 print(Qx)
+
+print(Gx)
 print(Gx.Del(VarX))
+
 print(DisGustingFunction.Del(VarX))
 print(Fucked_at_Zero * VarX)
 print(SinCos.Del(VarX))
@@ -662,9 +719,8 @@ print(Tan.Del(VarX))
 print(Sec.Del(VarX))
 print(TripleVariableDude)
 print(Monster)
+print(Mine(False, ZERO, ZERO) + ConstantMap(2) * Mine(False, ZERO, ZERO) + Sin(False, ONE))
 '''
-
-
 
 
 
