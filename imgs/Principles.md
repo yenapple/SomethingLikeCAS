@@ -150,7 +150,7 @@ Likewise, there is no `Op.TAN`. Tan is implemented with `Sin/Cos` form.
 
 <br>
 
-**3. Too many simplification is harmful - as Einstein said.**
+**3. Too many simplification is harmful**
 
 Although `Ln(ab) = Ln(a) + Ln(b)` is included in our simplifier, `xLn(a)` does not change to `Ln(a^x)` since EXPONENT is 
 cumbersome than product in many situations. Conversely, `Ln(e^x) = x, e^Ln(x) = x` are included.
@@ -216,100 +216,6 @@ General Differentiation Rules, Specific Derivatives and Simplifications are all 
 DisgustingFunction.Del(VarX)
 *(x^x, +(1, LN(x))
 
-```
-
-<br>
-
-
-## Isomorphism 
-
-
-The product uses "Homomorphism Structure".
-
-Since Function is a conceptual class, It is difficult to process operations on "specific" family of functions  
-with only this conceptual class. 
-
-"Homomorphism" is a function between two sets that preserves specific operation or characteristics. 
-Here, they should be closed under the operation.
-
-<br>
-
-```
-    f(a + b) = f(a) + f(b)
-    f(ab) = f(a)f(b)
-```
-
-<br>
-
-For example, this simple function above is Homomorphism on addition and multiplication.
-
-If a homomorphism is injective, it's called monomorphism.
-
-If a homomorphism is surjective, it's called ephimorphism.
-
-If both, it's called Isomorphism. Our system is monomorphism - based. 
-
-<br>
-
-```
-    Function class <----ConvertTo-------> Specific external class
-    |                       (Clockwise)             |
-    v                                               v
-    Operations<--------ConvertTo-----------------> Operations
-
-```
-
-<br>
-
-Diagram above fully describes how our system works. 
-
-<br>
-
-**1. Generate specific external instance and its pair - Function from ConvertTo() **
-
-**2. Operation is called from Function class**
-
-**3. Execute the paired operation from paired instance in the external class**
-
-**4. Use ConvertTo() to obtain the result in Function class.**
-
-<br>
-
-To illustrate further, imagine Polynomial Multiplication - It is bothersome work 
-within Tree structure. So is other polynomial - specific works and simplification.
-
-```
-    def __mul__(self, other):
-
-        s, o = Pad_list(self.Coefficients, other.Degree, "L"), Pad_list(other.Coefficients, self.Degree, "L")
-        s.reverse()
-        o.reverse()
-
-        # Cauchy Product.
-        a = [sum([s[x] * o[k - x] for x in range(k+1)]) for k in range(self.Degree + other.Degree+1)]
-        a.reverse()
-        return Polynomial(a)
-
-```
-<br>
-
-
-Thus we first process it within polynomial family, and convert back to Function class.
-Since the two results should be identical Mathematically, we choose convenient order.
-
-<br>
-
-It is hard to 'generally' implement this structure with code 100%. Instead, I will be giving commands that specifies the family
-of function, in order to apply the monomorphism. They will be:
-
-```
-Polynomials
-Rational Functions
-Trigonometric Series
-Linear Transformations
-Analytic Functions
-
-And any other mathematical structures which have monomorphism structure.  
 ```
 
 
