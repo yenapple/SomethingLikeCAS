@@ -5,11 +5,9 @@ from collections import defaultdict
 import Operator as Op
 import Polynomial as Poly
 
-'''디폴트함수는 Parameters, Operator 는 무조건 Default, Operands 는 기본적으로 Parameters 와 같은 취급을 하고,
-Name attribute 에 함수 이름을 부여하는 것으로 한다.'''
 
 
-class Function: # Function class
+class Function: 
 
     def __init__(self, parameters =(), operator = Op.Operator(""), *operands):
 
@@ -17,16 +15,13 @@ class Function: # Function class
         self.Operator = operator
         self.Operands = list(operands)
 
-        self.Name = None # 이 부분은 함수 자체의 이름으로 지어줘야 한다. 디폴트함수의 경우 많이 사용하게 될 것.
-        # 또한 디폴트함수의 원형은 Name 을 부여하며, DefaultDictionary 에 생성과 함꼐 집어넣어야 한다.
+        self.Name = None 
         self.Value = None
 
-        #Isomorphism code
-        #self.InverseImage = None
 
     def __str__(self):
 
-        if self.Operator == Op.DEFAULT: # 수정 내역 6. 디폴트함수의 출력
+        if self.Operator == Op.DEFAULT:
             return self.Name + "(" + Op.Sigma(*[str(elem) + "," for elem in self.Operands])[:-1] + ")"
 
         return  str(self.Operator) + "(" + Op.Sigma(*[str(elem) + "," for elem in self.Operands])[:-1] + ")"
@@ -34,8 +29,8 @@ class Function: # Function class
 
     def __call__(self, call_option = False, *args):
 
-        if len(args) != len(self.Parameters): #Funcking false call
-            return "Fuck You"
+        if len(args) != len(self.Parameters): 
+            return "Invalid input"
         elif args == self.Parameters: # Default call optimization f(Parameters).
             return self
 
@@ -52,7 +47,7 @@ class Function: # Function class
             clone = copy.deepcopy(self)
             Substitute(clone, substitution_table)
 
-            # 치환된 것을 Top - down 방식으로 다시 계산하며 축약.
+           
             clone = CalculateTree(clone)
 
             if isinstance(clone, ConstantMap):
@@ -66,44 +61,29 @@ class Function: # Function class
         if isinstance(self, ConstantMap) and isinstance(other, ConstantMap):
             return self.Value == other.Value
 
-        elif self.Operator == Op.DEFAULT and other.Operator == Op.DEFAULT: # 디폴트 함수의 경우.
+        elif self.Operator == Op.DEFAULT and other.Operator == Op.DEFAULT: 
             return self.Name == other.Name and self.Operands == other.Operands
-        '''
-        b = Bind("=", self, other)
-        if b is None:
-            pass
-        else:
-            return b
-        '''
+
         return self.Operator == other.Operator and self.Operands == other.Operands
-        #같은 것은 같은 것이므로 패러미터는 비교하지 않는다.
+        
 
     def __add__(self, other):
 
         if isinstance(self, ConstantMap) and isinstance(other, ConstantMap):
             return ConstantMap(self.Value + other.Value)
 
-        '''
-        b = Bind("+", self, other)
-        if not b is None:
-            return b
-        '''
+
 
         f = Remove_Parenthesis(Op.ADD, self, other)
         f = Order_operands(f)
         f = Group_operands(f)
         return f
 
-    #Syntactic sugar
+    
     def __sub__(self, other):
         if self == other:
             return ZERO
 
-        '''
-        b = Bind("-", self, other)
-        if not b is None:
-            return b
-        '''
         return self + NEG_ONE*other
 
     def __mul__(self, other):
@@ -111,11 +91,6 @@ class Function: # Function class
         if isinstance(self, ConstantMap) and isinstance(other, ConstantMap):
             return ConstantMap(self.Value * other.Value)
 
-        '''
-        b = Bind("*", self, other)
-        if not b is None:
-            return b
-        '''
 
         f = Remove_Parenthesis(Op.MUL, self, other)
         f = Order_operands(f)
@@ -130,17 +105,13 @@ class Function: # Function class
 
         elif self == E and power.Operator == Op.LN: # E^(Ln(x)) = x
             return power.Operands[0]
-        '''
-        b = Bind("^", self, power)
-        if not b is None:
-            return b
-        '''
+
         f = Remove_Parenthesis(Op.POW, self, power)
         f = Order_operands(f)
         f = Group_operands(f)
         return f
 
-    #Syntactic sugar
+    
     def __truediv__(self, other):
         if other == ZERO:
             return ZeroDivisionError
@@ -149,18 +120,14 @@ class Function: # Function class
         elif self == other:
             return ONE
         else:
-            '''
-            b = Bind("/", self, other)
-            if not b is None:
-                return b
-            '''
+
             return self * pow(other, NEG_ONE)
 
     # (Partial) Differentiation Operator Del.
     def Del(self, other):
 
         if not isinstance(other, IdentityMap):
-            return "Fuck You"
+            return "Invalid input"
 
         else:
             if IsConst(self, (other,)):
@@ -169,8 +136,8 @@ class Function: # Function class
             elif self == other:
                 return ONE
 
-            elif self.Operator == Op.DEFAULT and self.Operands == list(self.Parameters): # 수정 내역 1 : 디폴트함수의 미분은 디폴트
-                return Function(self.Parameters, Op.DEL, self, other) #  이런 경우에 DEL 을 !
+            elif self.Operator == Op.DEFAULT and self.Operands == list(self.Parameters): 
+                return Function(self.Parameters, Op.DEL, self, other) 
 
             elif self == Sin(False, other):
                 return Cos(False, other)
@@ -203,7 +170,7 @@ class Function: # Function class
 
                 base = self.Operands[0]
                 exponent = self.Operands[1]
-                if IsConst(exponent, (other,)): # 수정 내역 #3: IsConst 를 사용
+                if IsConst(exponent, (other,)): 
                     return exponent * base.Del(other) * pow(base, exponent-ONE)
                 else:
                     p = pow(base, exponent-ONE)
@@ -260,8 +227,7 @@ class IdentityMap(Function):
 
         return self.Name == other.Name
 
-    # Warning: 이 코드는 본질을 흐린다. Function class 의 비교에는 사실 등식 밖에 없다. 부등호들은 편의상 도입한 것이며 실제 부등식 기능과는 관련이 없다.
-    # 이것들은 인자의 우선 순위를 나타내는 것으로, ascii 비교의 정반대: x 가 y 보다 우선한다.
+    # Warning: This > is not real inequality
     def __gt__(self, other):
 
         return self.Name < other.Name
@@ -277,7 +243,7 @@ class IdentityMap(Function):
     def __call__(self, call_option = False, *args):
 
         if len(args)!=1:
-            return "Fuck You"
+            return "Invalid input"
 
         return args[0]
 
@@ -285,14 +251,14 @@ class IdentityMap(Function):
 
         return self.Name
 
-# Default Function Generator.
+
 def DefaultFunction(name, parameters):
     f = Function(parameters, Op.DEFAULT, *list(parameters))
     setattr(f, "Name" , name)
     DefaultDictionary[name] = f
     return f
 
-#lemma code
+
 def Substitute(function, substitution_table):
 
     ops = function.Operands
@@ -313,7 +279,7 @@ def Substitute(function, substitution_table):
         else:
             Substitute(ops[x], substitution_table)
 
-#lemma code
+
 def IsConst(function, reference = ()):
     # reference X -> To check if it is literally constant
     # reference O -> To check if it is constant with respect to reference variables
@@ -340,7 +306,7 @@ def IsConst(function, reference = ()):
 
         return True
 
-# Default function call like f(0), is Const but cannot be computed. 이런 구분은 짜증나는 것이지만, 현재로서 방법이 없다.
+# Default function call like f(0), is Const but cannot be computed. 
 def IsPureConst(const_tree):
 
     if not IsConst(const_tree):
@@ -361,7 +327,7 @@ def IsPureConst(const_tree):
 
         return True
 
-#lemma code
+
 def EvaluateConst(const_tree): # Evaluating real value of Constant Tree. This should be done on Pure constant Tree.
 
     if isinstance(const_tree, ConstantMap):
@@ -374,7 +340,7 @@ def EvaluateConst(const_tree): # Evaluating real value of Constant Tree. This sh
         else:
             return ConstantMap(op.EvaluationFunction(*[EvaluateConst(i).Value for i in const_tree.Operands]))
 
-#lemma code
+
 def CalculateTree(function):
 
         if IsPureConst(function):
@@ -398,7 +364,6 @@ def CalculateTree(function):
 
 
 '''
-#lemma code
 def IsPolynomial(function):
 
     if isinstance(function, ConstantMap):
@@ -420,17 +385,15 @@ def IsPolynomial(function):
 
 
 
-# Fundamental Variable X used for built - in Unitary Functions.
 VarX = IdentityMap("x")
 
-#setattr(VarX, "InverseImage", Poly.Polynomial([1]))
-#이것은 임시방편이다. 곧 Polynomial 클래스를 Multi-variable version 으로 확장할 것이니 그때까지만 놔두자.
+
 
 VarY = IdentityMap("y")
 VarZ = IdentityMap("z")
 VarT = IdentityMap("t")
 
-# Four basic Built - in Functions.
+
 Sin = Function((VarX,), Op.SIN, VarX)
 Cos = Function((VarX,), Op.COS, VarX)
 Ln = Function((VarX,), Op.LN, VarX)
@@ -440,17 +403,17 @@ Arccos = Function((VarX,), Op.ARCCOS, VarX)
 UnitaryDictionary = {Op.SIN : Sin, Op.COS : Cos, Op.LN : Ln, Op.ARCSIN : Arcsin, Op.ARCCOS : Arccos}
 DefaultDictionary = {}
 
-# Fundamental Constants used frequently.
+
 ONE = ConstantMap(1)
 NEG_ONE = ConstantMap(-1)
 ZERO = ConstantMap(0)
 PI = ConstantMap(math.pi)
 E = ConstantMap(math.e)
 
-# Example of Default Function.
+
 Mine = DefaultFunction("Mine", (VarX, VarY))
 
-#lemma code.
+
 def Redefine_Parameter(call_option = False, *function_set):
 
         if call_option: # False if not explicitly given parameter order
@@ -462,7 +425,7 @@ def Redefine_Parameter(call_option = False, *function_set):
         return redefined_parameters
 
 
-#lemma code
+
 def Remove_Parenthesis(operator, function1, function2):
 
         redefined_parameters = Redefine_Parameter(False, function1, function2)
@@ -484,7 +447,7 @@ def Remove_Parenthesis(operator, function1, function2):
 
         return parenthesis_removed_form
 
-#lemma code
+
 def Order_operands(function):
 
     if function.Operator == Op.POW:
@@ -500,7 +463,7 @@ def Order_operands(function):
     elif function.Operator == Op.ADD or function.Operator == Op.MUL:
 
         constant_operands = [elem for elem in function.Operands if IsPureConst(elem)]
-        # 수정 내역 5. Pure ConstantMap 인 것에 대해서만 축약 적용.
+
         non_constant_operands = [elem for elem in function.Operands if not elem in constant_operands]
 
         pre = None
@@ -524,7 +487,7 @@ def Order_operands(function):
                 temp = [elem for elem in temp if not elem in ln_operators]
                 ln = Ln(False, Op.Product(*[elem.Operands[0] for elem in ln_operators]))
                 temp += [ln,]
-                # Ln(a^x) = xLn(a) 는 Default 로서는 '넣지 않는다'. 지수보다 상수가 편하다고 생각하는 철학? ㅎㅎ.
+                # Should we have Ln(a^x) = xLn(a) ?
 
         elif function.Operator == Op.MUL:
 
@@ -549,7 +512,7 @@ def Order_operands(function):
     else:
         return function
 
-#lemma code.
+
 def Group_operands(function):
 
     # For Only 2 multiplied terms
@@ -616,74 +579,7 @@ def Group_operands(function):
     return function
 
 
-'''Isomorphism 은 분명 좋은 수학적 도구이나, 이를 코드로 쓰기에는 그 자유도 때문에 매우 위험하다.
-    아래의 코드가 정말로 옳은 방법인지 반드시 나중에 확인할 필요가 있다.'''
 
-'''
-#Isomorphism code
-class Isomorphism:
-
-    def __init__(self, mapping, *operator_names):
-
-        self.Map = mapping
-        self.Operations = operator_names
-
-
-#Isomorphism code
-def Convert(self, parameter):
-
-    #Monomorphism: Polynomial -> Function.
-    summation = [Function((parameter, ), Op.MUL,
-                                ConstantMap(self.Coefficients[i]), Function((parameter,), Op.POW, parameter, ConstantMap(i)))
-                    for i in range(self.Degree + 1)]
-
-    a = ZERO
-    if len(summation) == 1:
-        a = summation[0]
-    else:
-        a = Function((parameter,), Op.ADD, *summation)
-    setattr(a, "InverseImage", self)
-    return a
-# 곧 다항식 모듈을 일반적으로 n 변수 다항식으로 바꿀 테니 그때까지만 참자.
-
-
-#Isomorphism code
-Poly.Polynomial.ConvertToFunction = Convert
-Polynomial_Isomorphism = Isomorphism(Poly.Polynomial.ConvertToFunction, "=", "+", "*", "-")
-Isomorphisms_list = { Function : None, Poly.Polynomial : Polynomial_Isomorphism }
-
-
-#Isomorphism code
-def Bind(operator_name, function1, function2):
-
-    f1 = function1.InverseImage
-    f2 = function2.InverseImage
-
-    if f1 is None or f2 is None:
-        return None
-    elif isinstance(f1, type(f2)):
-        i = Isomorphisms_list[type(f2)]
-    elif isinstance(f2, type(f1)):
-        i = Isomorphisms_list[type(f1)]
-
-
-    if i is None or not (operator_name in i.Operations):
-        return None
-    elif operator_name == "+":
-        return i.Map(f1 + f2, Redefine_Parameter(False, function1, function2))
-    elif operator_name == "*":
-        return i.Map(f1 * f2, Redefine_Parameter(False, function1, function2))
-    elif operator_name == "=":
-        return f1 == f2
-    elif operator_name == "/":
-        return i.Map(f1/f2, Redefine_Parameter(False, function1, function2))
-    elif operator_name == "-":
-        return i.Map(f1 - f2, Redefine_Parameter(False, function1, function2))
-    elif operator_name == "^":
-        return i.Map(pow(f1, f2), Redefine_Parameter(False, function1, function2))
-    else:
-        return None
-'''
 
 Tan = Sin/Cos
 Sec = ONE/Cos
@@ -697,7 +593,7 @@ Qx = VarY + VarY
 Tx = ConstantMap(4) * pow(VarX, ConstantMap(2)) + VarY
 Gx = Sin(False, Tx)
 DisGustingFunction = pow(VarX, VarX)
-Fucked_at_Zero = ONE/VarX
+Reciprocal = ONE/VarX
 SinCos = Sin(False, VarX) * Cos(False, VarX)
 ExpSin = pow(E, Sin(False, VarX))
 TripleVariableDude = (pow(VarX, ConstantMap(2)) + VarY * VarZ) / (ONE - VarX * Ln(False, VarZ))
@@ -712,7 +608,7 @@ print(Gx)
 print(Gx.Del(VarX))
 
 print(DisGustingFunction.Del(VarX))
-print(Fucked_at_Zero * VarX)
+print(Reciprocal * VarX)
 print(SinCos.Del(VarX))
 print(ExpSin.Del(VarX))
 print(Tan.Del(VarX))
